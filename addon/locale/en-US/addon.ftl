@@ -9,3 +9,5 @@ prefs-table-title = Title
 prefs-table-detail = Detail
 tabpanel-lib-tab-label = Lib Tab
 tabpanel-reader-tab-label = Reader Tab
+itemmenu-fill = Fill Metadata from DOI
+tools-fillall = Fill All DOIs (Library)
