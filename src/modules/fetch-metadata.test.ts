@@ -86,6 +86,24 @@ describe("fetchCslByDoi", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("R3: status 0 (timeout/network) is retried and succeeds on the retry", async () => {
+    const statuses = [0, 200];
+    const { http, calls } = mockHttp(async () => {
+      const status = statuses.shift() ?? 200;
+      return status === 200 ? { status, json: CSL } : { status, text: "" };
+    });
+    const res = await fetchCslByDoi("10.1234/example", http, { retryDelayMs: 0 });
+    expect(res).toEqual({ ok: true, csl: CSL });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("R3: status 0 twice -> network-error (not server-error)", async () => {
+    const { http, calls } = mockHttp(async () => ({ status: 0, text: "" }));
+    const res = await fetchCslByDoi("10.1234/example", http, { retryDelayMs: 0 });
+    expect(res).toEqual({ ok: false, reason: "network-error" });
+    expect(calls).toHaveLength(2);
+  });
+
   it("returns invalid-json for unparseable text on 200", async () => {
     const { http } = mockHttp(async () => ({ status: 200, text: "{not json" }));
     const res = await fetchCslByDoi("10.1234/example", http, { retryDelayMs: 0 });
@@ -144,6 +162,26 @@ describe("runPool", () => {
     );
     expect(results.map((r) => r.item)).toEqual(["a", "c", "d", "f"]);
     expect(results.map((r) => r.result)).toEqual(["A", "C", "D", "F"]);
+  });
+
+  it("R1: logs worker rejections with the item index", async () => {
+    const logs: string[] = [];
+    const results = await runPool(
+      ["a", "b", "c"],
+      async (s) => {
+        if (s === "c") throw new Error("boom");
+        return s;
+      },
+      {
+        concurrency: 2,
+        minIntervalMs: 0,
+        log: (l) => logs.push(l),
+      },
+    );
+    expect(results.map((r) => r.item)).toEqual(["a", "b"]);
+    expect(logs.some((l) => l === "runPool worker rejected for item 2: Error: boom")).toBe(
+      true,
+    );
   });
 
   it("enforces minIntervalMs between consecutive starts", async () => {

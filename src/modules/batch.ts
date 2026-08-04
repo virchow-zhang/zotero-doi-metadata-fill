@@ -110,6 +110,7 @@ export async function fillItems(
   opts?: {
     confirm?: (message: string) => Promise<boolean>;
     candidateCount?: number;
+    log?: (s: string) => void;
   },
 ): Promise<FillStats> {
   let toProcess = items;
@@ -135,7 +136,7 @@ export async function fillItems(
   const entries = await runPool(
     toProcess,
     (bi) => fillItem(bi.item, deps),
-    { concurrency: 3, minIntervalMs: 300 },
+    { concurrency: 3, minIntervalMs: 300, log: opts?.log },
   );
 
   const stats: FillStats = {
@@ -167,6 +168,19 @@ export async function fillItems(
           stats.failures.push({ doi: bi.doi, reason: result.reason });
         }
         break;
+    }
+  }
+
+  // Items that never made it into `entries` were rejected by the pool worker
+  // (an exception thrown before fillItem returned a result). Count them as
+  // failed so rejections don't silently vanish from the stats.
+  const resolvedItems = new Set(entries.map((e) => e.item));
+  for (const bi of toProcess) {
+    if (!resolvedItems.has(bi)) {
+      stats.failed++;
+      if (stats.failures.length < MAX_FAILURES) {
+        stats.failures.push({ doi: bi.doi, reason: "worker-rejected" });
+      }
     }
   }
 

@@ -59,8 +59,13 @@ export function computeChanges(snapshot: Snapshot, mapped: Mapped): Changes {
     creatorsAction = "set";
   } else if (mappedAuthors.length > snapshotAuthors.length) {
     const newAuthorNames = new Set(mappedAuthors.map(familyNameOf));
-    const hasSurnameMatch = snapshotAuthors.some((a) => newAuthorNames.has(familyNameOf(a)));
-    if (hasSurnameMatch) {
+    // Only replace the existing author list when EVERY existing surname also
+    // appears in the mapped set; a single partial surname match is not enough
+    // to risk dropping existing authors.
+    const allExistingMatch = snapshotAuthors.every((a) =>
+      newAuthorNames.has(familyNameOf(a)),
+    );
+    if (allExistingMatch) {
       creatorsAction = "set";
     }
   }

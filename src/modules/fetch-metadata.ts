@@ -19,6 +19,7 @@ export interface FetchCslDeps {
 export interface RunPoolOpts {
   concurrency?: number;
   minIntervalMs?: number;
+  log?: (s: string) => void;
 }
 
 export interface PoolEntry<T, R> {
@@ -43,7 +44,10 @@ function isCslObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isRetryableStatus(status: number): boolean {
-  return status === 429 || status >= 500;
+  // status 0 = network failure / timeout as resolved by Zotero.HTTP with
+  // successCodes: false (no HTTP status line ever received); treat as
+  // retryable, and classify as network-error after retry exhaustion.
+  return status === 0 || status === 429 || status >= 500;
 }
 
 export async function fetchCslByDoi(
@@ -83,7 +87,9 @@ export async function fetchCslByDoi(
       return { ok: false, reason: 'network-error' };
     }
     if (isRetryableStatus(res.status)) {
-      return { ok: false, reason: 'server-error' };
+      return res.status === 0
+        ? { ok: false, reason: 'network-error' }
+        : { ok: false, reason: 'server-error' };
     }
   }
 
@@ -120,6 +126,7 @@ export async function runPool<T, R>(
 ): Promise<PoolEntry<T, R>[]> {
   const concurrency = Math.max(1, opts?.concurrency ?? DEFAULT_CONCURRENCY);
   const minIntervalMs = Math.max(0, opts?.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS);
+  const log = opts?.log ?? (() => {});
 
   const resolved: Array<{ idx: number; item: T; result: R }> = [];
   const skippedIndices: number[] = [];
@@ -149,7 +156,10 @@ export async function runPool<T, R>(
       worker(item)
         .then(
           (result) => resolved.push({ idx, item, result }),
-          () => skippedIndices.push(idx),
+          (err) => {
+            log(`runPool worker rejected for item ${idx}: ${String(err)}`);
+            skippedIndices.push(idx);
+          },
         )
         .finally(() => {
           active--;

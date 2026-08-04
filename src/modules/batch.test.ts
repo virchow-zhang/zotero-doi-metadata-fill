@@ -360,6 +360,65 @@ describe("fillItems", () => {
     expect(stats.filled).toBe(1);
     expect(confirm).not.toHaveBeenCalled();
   });
+
+  it("R1: items whose worker rejects are counted as failed with reason worker-rejected", async () => {
+    const fetchCsl = vi.fn(async () => cslOk("T"));
+    const boom = makeItem({
+      fields: { DOI: "10.1000/boom", itemType: "journalArticle" },
+      creators: authors,
+    });
+    boom.item.getField = () => {
+      throw new Error("field access failed");
+    };
+    const items: BatchItem[] = [
+      batchOf(
+        "k1",
+        { fields: { DOI: "10.1000/ok", itemType: "journalArticle" }, creators: authors },
+        "10.1000/ok",
+      ),
+      { key: "k2", item: boom.item, doi: "10.1000/boom" },
+    ];
+    const stats = await fillItems(items, { fetchCsl });
+
+    expect(stats.filled).toBe(1);
+    expect(stats.failed).toBe(1);
+    expect(stats.failures).toEqual([
+      { doi: "10.1000/boom", reason: "worker-rejected" },
+    ]);
+    expect(fetchCsl).toHaveBeenCalledTimes(1);
+  });
+
+  it(
+    "R1: worker rejections respect the 20-entry failures cap",
+    async () => {
+      const fetchCsl = vi.fn(async () => cslOk("T"));
+      const boom = makeItem({
+        fields: { DOI: "10.1000/boom", itemType: "journalArticle" },
+        creators: authors,
+      });
+      boom.item.getField = () => {
+        throw new Error("field access failed");
+      };
+      const items: BatchItem[] = Array.from({ length: 25 }, (_, i) =>
+        i === 0
+          ? batchOf(
+              "k0",
+              { fields: { DOI: "10.1000/ok", itemType: "journalArticle" }, creators: authors },
+              "10.1000/ok",
+            )
+          : { key: `k${i}`, item: boom.item, doi: `10.1000/b${i}` },
+      );
+      const stats = await fillItems(items, { fetchCsl });
+
+      expect(stats.filled).toBe(1);
+      expect(stats.failed).toBe(24);
+      expect(stats.failures).toHaveLength(20);
+      expect(
+        stats.failures.every((f) => f.reason === "worker-rejected"),
+      ).toBe(true);
+    },
+    30000,
+  );
 });
 
 describe("summarizeResults", () => {

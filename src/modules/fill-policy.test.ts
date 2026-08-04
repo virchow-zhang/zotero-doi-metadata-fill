@@ -53,7 +53,7 @@ describe("computeChanges", () => {
     ]);
   });
 
-  it("mapped authors strictly longer AND surname match -> set", () => {
+  it("R4: longer mapped list where EVERY existing surname matches -> set", () => {
     const s = snapshot({
       creators: [
         { creatorType: "author", lastName: "Smith" },
@@ -75,6 +75,25 @@ describe("computeChanges", () => {
       firstName: "Adam",
       lastName: "Smith",
     });
+  });
+
+  it("R4: longer mapped list with only ONE of two existing surnames matching -> none", () => {
+    const s = snapshot({
+      creators: [
+        { creatorType: "author", lastName: "Smith" },
+        { creatorType: "author", lastName: "Brown" },
+      ],
+    });
+    const m = mapped({
+      creators: [
+        { creatorType: "author", firstName: "John", lastName: "Smith" },
+        { creatorType: "author", lastName: "Doe" },
+        { creatorType: "author", lastName: "Roe" },
+      ],
+    });
+    const changes = computeChanges(s, m);
+    expect(changes.creatorsAction).toBe("none");
+    expect(changes.newCreators).toBeUndefined();
   });
 
   it("mapped authors strictly longer but NO surname match -> none", () => {

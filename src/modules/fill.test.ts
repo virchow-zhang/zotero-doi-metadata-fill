@@ -272,4 +272,88 @@ describe("fillItem", () => {
     expect(result.reason).toContain("database locked");
     expect(result.changed).toEqual([]);
   });
+
+  it("B2: a setField that throws skips only that field, fills the rest, saves", async () => {
+    const stub = makeStub({ fields: { DOI: "10.1038/ng.3834" } });
+    // Simulate Zotero.Item.setField's throw for fields invalid on the
+    // current type: "'<field>' is not a valid field for type '<type>'".
+    const realSetField = stub.item.setField.bind(stub.item);
+    stub.item.setField = (field: string, value: string) => {
+      if (field === "publicationTitle") {
+        throw new Error("'publicationTitle' is not a valid field for type 'webpage'");
+      }
+      realSetField(field, value);
+    };
+
+    const result = await fillItem(stub.item, {
+      fetchCsl: async () => ({ ok: true, csl: ng3834 }),
+    });
+
+    expect(result.status).toBe("filled");
+    expect(result.changed).toContain("title");
+    expect(result.changed).not.toContain("publicationTitle");
+    expect(result.skipped).toEqual(["publicationTitle"]);
+    expect(stub.fields.title).toBe(ng3834.title);
+    expect(stub.fields.publicationTitle).toBeUndefined();
+    expect(stub.fields.date).toMatch(/^2017/);
+    expect(stub.savedCount()).toBe(1);
+  });
+
+  it("B2: itemTypeTo is applied (setType) BEFORE the first setField", async () => {
+    const stub = makeStub({ fields: { DOI: "10.1038/ng.3834" } });
+    (stub.item as unknown as { itemType: string }).itemType = "webpage";
+    const order: string[] = [];
+    const realSetField = stub.item.setField.bind(stub.item);
+    const realSetType = stub.item.setType.bind(stub.item);
+    stub.item.setField = (field: string, value: string) => {
+      order.push("setField:" + field);
+      realSetField(field, value);
+    };
+    stub.item.setType = (typeID: number) => {
+      order.push("setType:" + typeID);
+      realSetType(typeID);
+    };
+
+    const result = await fillItem(stub.item, {
+      fetchCsl: async () => ({
+        ok: true,
+        csl: {
+          type: "journal-article",
+          title: "Web to article",
+          "container-title": "Some Journal",
+        },
+      }),
+      getTypeID: (name) => (name === "journalArticle" ? 42 : -1),
+    });
+
+    expect(result.status).toBe("filled");
+    expect(result.changed).toContain("itemType");
+    expect(order[0]).toBe("setType:42");
+    const setTypeAt = order.indexOf("setType:42");
+    const firstSetFieldAt = order.findIndex((o) => o.startsWith("setField:"));
+    expect(setTypeAt).toBeGreaterThanOrEqual(0);
+    expect(firstSetFieldAt).toBeGreaterThan(setTypeAt);
+    expect(stub.fields.title).toBe("Web to article");
+    expect(stub.savedCount()).toBe(1);
+  });
+
+  it("B2: setType throwing aborts as apply-error (only setField errors are skippable)", async () => {
+    const stub = makeStub({ fields: { DOI: "10.1038/ng.3834" } });
+    (stub.item as unknown as { itemType: string }).itemType = "webpage";
+    stub.item.setType = () => {
+      throw new Error("cannot change type");
+    };
+    const result = await fillItem(stub.item, {
+      fetchCsl: async () => ({
+        ok: true,
+        csl: { type: "journal-article", title: "Web to article" },
+      }),
+      getTypeID: () => 42,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.reason).toContain("apply-error");
+    expect(result.reason).toContain("cannot change type");
+    expect(stub.savedCount()).toBe(0);
+  });
 });

@@ -26,6 +26,10 @@ export interface FillResult {
   status: FillStatus;
   changed: string[];
   reason?: string;
+  // Fields whose setField threw (e.g. a field invalid for the target item
+  // type before setType took effect); the field was skipped, the fill
+  // continued, and saveTx still ran.
+  skipped?: string[];
 }
 
 // The Zotero Item surface this module requires (duck type; runtime object is
@@ -158,14 +162,11 @@ export async function fillItem(
     }
 
     const changed: string[] = [];
-    for (const [field, value] of Object.entries(changes.fieldsToSet)) {
-      item.setField(field, value);
-      changed.push(field);
-    }
-    if (changes.creatorsAction === "set") {
-      item.setCreators(changes.newCreators!);
-      changed.push("creators");
-    }
+    const skipped: string[] = [];
+    // Apply setType FIRST: Zotero's setField throws
+    // "'<field>' is not a valid field for type '<type>'" when the field is
+    // invalid for the CURRENT type (e.g. publicationTitle on a webpage), so
+    // the item must be upgraded to its target type before the field loop.
     if (changes.itemTypeTo !== undefined) {
       const typeID = deps?.getTypeID
         ? deps.getTypeID(changes.itemTypeTo)
@@ -173,9 +174,26 @@ export async function fillItem(
       item.setType(typeID);
       changed.push("itemType");
     }
+    for (const [field, value] of Object.entries(changes.fieldsToSet)) {
+      try {
+        item.setField(field, value);
+        changed.push(field);
+      } catch (err) {
+        // Skip only the failing field; never abort the whole fill.
+        skipped.push(field);
+      }
+    }
+    if (changes.creatorsAction === "set") {
+      item.setCreators(changes.newCreators!);
+      changed.push("creators");
+    }
 
     await item.saveTx();
-    return { status: "filled", changed };
+    const result: FillResult = { status: "filled", changed };
+    if (skipped.length > 0) {
+      result.skipped = skipped;
+    }
+    return result;
   } catch (err) {
     return { status: "failed", changed: [], reason: "apply-error: " + String(err) };
   }
