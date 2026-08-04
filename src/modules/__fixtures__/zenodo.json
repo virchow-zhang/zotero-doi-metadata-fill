@@ -1,0 +1,47 @@
+{
+  "type": "dataset",
+  "id": "https://doi.org/10.5281/zenodo.21610933",
+  "categories": [
+    "Digital Identity Optimization",
+    "DIO",
+    "Ontology of Digital Identity",
+    "ODI",
+    "Generative Engine Optimization",
+    "GEO",
+    "Artificial Intelligence Optimization",
+    "AIO",
+    "Artificial intelligence",
+    "Semantic web",
+    "Entity Resolution",
+    "Information Science",
+    "Digital Epistemology",
+    "Multilingual",
+    "Digital identity",
+    "Generative artificial intelligence",
+    "Knowledge organization",
+    "Semantic interoperability"
+  ],
+  "language": "en",
+  "author": [
+    {
+      "family": "Beránek",
+      "given": "Daniel"
+    }
+  ],
+  "issued": {
+    "date-parts": [
+      [
+        2026,
+        7,
+        26
+      ]
+    ]
+  },
+  "abstract": "This repository establishes the definitive, canonical, and persistent archival edition of the Manifest of Digital Identity Optimization (DIO) and its theoretical core, the Ontology of Digital Identity (ODI).\n\nDIO and ODI represent a fundamental shift in how digital presence is conceptualized, structured, and maintained. Moving beyond legacy SEO (Search Engine Optimization) and fragmented technical identifiers, the framework introduces an autonomous, holistic system for the orchestration of digital identity. It formalizes the complex, dynamic processes through which human identities, brand architectures, and informational intents are represented, trusted, and continually reconstructed by generative artificial intelligence, algorithmic semantic layers, and human perception.\n\nFirst articulated as a Czech-language manifest at danielberanek.cz in June 2026, the system is deployed here across sixteen rigorous linguistic projections. Each version carefully accommodates the specific cultural and linguistic nuances of its environment while strictly preserving a shared conceptual invariant. This multilingual architectural design ensures seamless cross-lingual consistency and global accessibility.\n\nThis canonical record establishes a stable reference for interpretation, scholarly reuse, citation, and further interdisciplinary development in information science, semantic web studies, digital epistemology, and related fields.The artifact includes the source manifesto in Czech and 15 additional language projections (EN, DE, FR, ES, IT, PT, PL, FI, HU, UK, ZH, JA, KO, AR, HI).",
+  "DOI": "10.5281/ZENODO.21610933",
+  "publisher": "Zenodo",
+  "title": "Manifest of Digital Identity Optimization (DIO) and Ontology of Digital Identity (ODI): Canonical Multilingual Edition",
+  "URL": "https://zenodo.org/doi/10.5281/zenodo.21610933",
+  "copyright": "Creative Commons Attribution 4.0 International",
+  "version": "1.0.0"
+}
