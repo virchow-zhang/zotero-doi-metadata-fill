@@ -2,7 +2,7 @@
   "name": "zotero-doi-metadata-fill",
   "type": "module",
   "version": "0.1.0",
-  "description": "Zotero Plugin Template",
+  "description": "通过 DOI 自动补全 Zotero 缺失的题录元数据（作者/期刊/年份/卷期页/ISSN/摘要等），支持单条与全库批量，只补空缺不覆盖已有数据",
   "config": {
     "addonName": "DOI Metadata Fill",
     "addonID": "doi-metadata-fill@zhang.local",
