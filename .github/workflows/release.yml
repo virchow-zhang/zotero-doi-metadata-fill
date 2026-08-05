@@ -22,13 +22,19 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Release to GitHub
+      - name: Create GitHub Release with xpi asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # GITHUB_REF_NAME is e.g. "v0.1.0"; strip the leading "v" for the version arg.
           VERSION="${GITHUB_REF_NAME#v}"
-          echo "Releasing version: ${VERSION}"
-          # Official non-interactive release: explicit version + -y skips the prompt.
-          npm run release -- "${VERSION}" -y
+          XPI=".scaffold/build/doi-metadata-fill.xpi"
+          echo "Releasing v${VERSION} from ${XPI}"
+          test -f "$XPI" || { echo "ERROR: xpi not found"; exit 1; }
+          gh release create "v${VERSION}" \
+            "$XPI" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "DOI Metadata Fill v${VERSION}" \
+            --generate-notes
+          echo "Release created: v${VERSION}"
+          gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}"
