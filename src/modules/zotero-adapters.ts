@@ -145,7 +145,7 @@ export function createGetTypeID(): (typeName: string) => number {
   return (typeName: string) => Zotero.ItemTypes.getID(typeName) as number;
 }
 
-// ---- B1: internal <-> JSON creator format translation ----------------------
+// ---- B1/E: internal <-> JSON creator format translation -------------------
 //
 // Zotero.Item.getCreators() returns the INTERNAL format: each entry is
 // {creatorTypeID: number, fieldMode: 0|1, firstName?, lastName?} with NO
@@ -154,18 +154,30 @@ export function createGetTypeID(): (typeName: string) => number {
 // "zero authors", forcing creatorsAction="set" on every run and duplicating
 // authors. The wrapper translates at the boundary (this file only).
 //
-// Verified against the installed Zotero (C:\Program Files\Zotero\app\omni.ja):
+// Verified against the installed Zotero (C:\Program Files\Zotero\app\omni.ja,
+// 10.0-beta.22+4ec5ba9c2):
 //   - Zotero.Creators.internalToJSON(fields)
 //     chrome/content/zotero/xpcom/data/creators.js:255-266
 //     (fieldMode==1 -> {name: lastName}; else {firstName, lastName};
 //     creatorType via Zotero.CreatorTypes.getName(fields.creatorTypeID))
-//   - There is NO public Zotero.Creators.getCreatorsFromJSON; the reverse
-//     direction is performed manually below and matches what
-//     Zotero.Creators.cleanData (creators.js:186-252) + setCreator
-//     (item.js:1395-1398) accept: {creatorTypeID, fieldMode, firstName,
-//     lastName} or {creatorTypeID, fieldMode: 1, name}.
-//     Zotero.CreatorTypes.getID accepts both names and numeric ids
-//     (cachedTypes.js _cacheTypeData stores both '_'+id and '_'+name keys).
+//   - WRITE direction (Defect E fix): Zotero.Item.prototype.setCreators
+//     (chrome/content/zotero/xpcom/data/item.js:1446-1461) is documented and
+//     implemented for "an array of creator data in internal or API JSON
+//     format"; each entry goes through setCreator (item.js:1395-1443), which
+//     calls Zotero.Creators.cleanData (creators.js:186-252) -- Zotero's own
+//     JSON->internal converter ({creatorType, firstName, lastName} ->
+//     {fieldMode:0, firstName, lastName, creatorTypeID}; {creatorType, name}
+//     -> {fieldMode:1, lastName: name, creatorTypeID}).
+//   - The previous hand-rolled creatorsFromJson captured
+//     Zotero.CreatorTypes.getID and called it WITHOUT `this`. getID reads
+//     this._types (cachedTypes.js:98-116), so the unbound call always took
+//     the UnloadedDataException branch and threw via
+//     Zotero.Utilities.capitalize (utilities.js:1137-1141):
+//     "Error: Argument must be a string". Every creators write aborted as
+//     "apply-error: Error: Argument must be a string" (observed live).
+//     Therefore creatorsFromJson now passes the JSON-style creators through
+//     unchanged: the real item.setCreators -> cleanData performs the
+//     conversion with a properly bound getID inside Zotero's own scope.
 
 export type WrappedCreator = {
   creatorType: string;
@@ -191,9 +203,6 @@ type ZoteroLike = {
       lastName?: string;
     }): WrappedCreator;
   };
-  CreatorTypes: {
-    getID(idOrName: string | number): number | false;
-  };
 };
 
 // Resolve the Zotero namespace through the global object so the translators
@@ -218,23 +227,13 @@ export function creatorsToJson(internal: InternalCreator[]): WrappedCreator[] {
   }));
 }
 
-// JSON -> internal (manual; no public helper in the installed Zotero).
-export function creatorsFromJson(creators: WrappedCreator[]): InternalCreator[] {
-  const getID = zoteroNamespace()?.CreatorTypes?.getID;
-  return creators.map((c) => {
-    const creatorTypeID = getID
-      ? (getID(c.creatorType) as number) || 1
-      : 1;
-    if (c.name !== undefined && c.name !== "") {
-      return { creatorTypeID, name: c.name, fieldMode: 1 as const };
-    }
-    return {
-      creatorTypeID,
-      firstName: c.firstName ?? "",
-      lastName: c.lastName ?? "",
-      fieldMode: 0 as const,
-    };
-  });
+// JSON -> internal is performed by the REAL item: setCreators -> setCreator
+// -> Zotero.Creators.cleanData (verified creators.js:186-252, item.js:1404).
+// The JSON-style array is passed through unchanged; hand-rolling the
+// conversion here was Defect E (the unbound Zotero.CreatorTypes.getID call
+// threw "Argument must be a string").
+export function creatorsFromJson(creators: WrappedCreator[]): WrappedCreator[] {
+  return creators;
 }
 
 // Wrap a REAL Zotero item so pure modules see the JSON creator format. The

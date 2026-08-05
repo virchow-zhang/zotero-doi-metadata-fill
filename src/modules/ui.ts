@@ -181,6 +181,9 @@ async function selfTest(): Promise<void> {
       status: goodResult.status,
       changed: goodResult.changed,
       skipped: goodResult.skipped ?? null,
+      // Defect E: the apply-error reason (e.g. the real setCreators
+      // exception) must land in the self-test result file, not be swallowed.
+      reason: goodResult.reason ?? null,
       creatorsCount: good.getCreators().length,
       publicationTitle: good.getField("publicationTitle"),
       date: good.getField("date"),
