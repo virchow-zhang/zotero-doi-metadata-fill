@@ -13,6 +13,10 @@ async function onStartup() {
 
   exposeApi();
 
+  // MenuManager is a global registry -- register directly, don't depend on window timing
+  registerMenus();
+
+  // Still handle existing windows (FTL l10n needs a window context)
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
   );
@@ -30,6 +34,7 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
 
+  // Idempotent: no-op if already registered in onStartup
   registerMenus(win);
 }
 

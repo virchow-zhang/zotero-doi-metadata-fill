@@ -14,6 +14,8 @@ import {
   wrapItem,
 } from "./zotero-adapters";
 
+let _menusRegistered = false;
+
 const ITEM_MENU_ITEM_ID = "doimetafill-itemmenu-fill";
 const TOOLS_MENU_ITEM_ID = "doimetafill-tools-fillall";
 
@@ -37,33 +39,56 @@ function menuLabel(key: FluentMessageId, fallback: string): string {
   return fallback;
 }
 
-export function registerMenus(win: _ZoteroTypes.MainWindow): void {
-  const doc = win.document;
-  const itemMenu = doc.getElementById("zotero-itemmenu");
-  if (itemMenu && doc.getElementById(ITEM_MENU_ITEM_ID) === null) {
-    const item = doc.createElement("menuitem");
-    item.id = ITEM_MENU_ITEM_ID;
-    item.setAttribute("label", menuLabel("itemmenu-fill", "按 DOI 补全题录"));
-    item.addEventListener("command", () => handleSelected());
-    itemMenu.appendChild(item);
+export function registerMenus(_win?: _ZoteroTypes.MainWindow): void {
+  if (_menusRegistered) return;
+  _menusRegistered = true;
+  try {
+    (Zotero.MenuManager as any).registerMenu({
+      menuID: ITEM_MENU_ITEM_ID,
+      pluginID: "doi-metadata-fill@zhang.local",
+      target: "main/library/item",
+      menus: [
+        {
+          menuType: "menuitem",
+          l10nID: "doiMetaFill-doimetafill-itemmenu-fill",
+          onCommand: () => handleSelected(),
+        },
+      ],
+    });
+
+  } catch (e) {
+    Zotero.debug('DoiMetaFill: MenuManager item register error: ' + e);
+    _menusRegistered = false;
   }
-  const toolsMenu = doc.getElementById("menu_ToolsPopup");
-  if (toolsMenu && doc.getElementById(TOOLS_MENU_ITEM_ID) === null) {
-    const item = doc.createElement("menuitem");
-    item.id = TOOLS_MENU_ITEM_ID;
-    item.setAttribute(
-      "label",
-      menuLabel("tools-fillall", "批量补全 DOI 题录（全库）"),
-    );
-    item.addEventListener("command", () => handleLibrary());
-    toolsMenu.appendChild(item);
+  try {
+    (Zotero.MenuManager as any).registerMenu({
+      menuID: TOOLS_MENU_ITEM_ID,
+      pluginID: "doi-metadata-fill@zhang.local",
+      target: "main/menubar/tools",
+      menus: [
+        {
+          menuType: "menuitem",
+          l10nID: "doiMetaFill-doimetafill-tools-fillall",
+          onCommand: () => handleLibrary(),
+        },
+      ],
+    });
+
+  } catch (e) {
+    Zotero.debug('DoiMetaFill: MenuManager tools register error: ' + e);
+    _menusRegistered = false;
   }
 }
 
-export function unregisterMenus(win: Window): void {
-  const doc = win.document;
-  doc.getElementById(ITEM_MENU_ITEM_ID)?.remove();
-  doc.getElementById(TOOLS_MENU_ITEM_ID)?.remove();
+export function unregisterMenus(_win?: Window): void {
+  _menusRegistered = false;
+  try {
+    (Zotero.MenuManager as any).unregisterMenu(ITEM_MENU_ITEM_ID);
+    (Zotero.MenuManager as any).unregisterMenu(TOOLS_MENU_ITEM_ID);
+
+  } catch (e) {
+    Zotero.debug('DoiMetaFill: MenuManager unregister error: ' + e);
+  }
 }
 
 function handleSelected(): void {
