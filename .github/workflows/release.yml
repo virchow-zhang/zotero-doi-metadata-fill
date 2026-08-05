@@ -12,10 +12,23 @@ permissions:
 
 jobs:
   create-release:
-    uses: zotero-plugin-dev/workflows/.github/workflows/release-plugin.yml@main
-    with:
-      build: "npm run build"
-      # Non-interactive release: derive version from the tag (strip leading 'v'),
-      # skip confirmation prompts (bumpp would otherwise hang waiting for TTY input in CI)
-      release: "npx bumpp --release ${GITHUB_REF_NAME#v} -y --no-push --no-git-check --no-verify"
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup JS
+        uses: zotero-plugin-dev/workflows/setup-js@main
+        with:
+          fetch-all: true
+
+      - name: Build
+        run: npm run build
+
+      - name: Release to GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # GITHUB_REF_NAME is e.g. "v0.1.0"; strip the leading "v" for the version arg.
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Releasing version: ${VERSION}"
+          # Official non-interactive release: explicit version + -y skips the prompt.
+          npm run release -- "${VERSION}" -y
